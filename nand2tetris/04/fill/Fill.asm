@@ -13,62 +13,46 @@
 
 // Put your code here.
 
-//add=screen
-@8192
+
+//because the A-instrution's value can only be 15-bits,
+// can't write 65535(16-bits)  directly, but we can write -1
+
+//last=8K bit 
+@8192 
 D=A
 @last
 M=D
 
 (BEGIN)
-//if(kbd==0) jump to WHITE
+//if (kbd==0) color = WHITE
+//else color = BLACK
 @KBD
 D=M
 @WHITE
 D;JEQ
-//else jmp to BLACK
-@BLACK
-0;JMP
-/////////////////////////////////////////////
-(BLACK)
-//for(i=0;i<last;i++)  R[*add]=-1;(*add)++
-@i
-M=0
-@SCREEN
-D=A
-@add
-M=D
 
-(BLOOP)
-@i
-D=M
-@last
-D=D-M
-@BEGIN
-D;JGE
-
-@add
-A=M
+//set color
+@color
 M=-1
-
-@add
-M=M+1
-
-@i
-M=M+1
-
-@BLOOP
+@FILL
 0;JMP
-/////////////////////////////////////////////
+
 (WHITE)
-//for(i=0;i<last;i++)  R[*add]=0;(*add)++
+@color
+M=0
+@FILL
+0;JMP
+
+(FILL)
+//for(i=0;i<last;i++)  M[addr]=color;(addr)++
 @i
 M=0
 @SCREEN
 D=A
-@add
+@addr
 M=D
 
-(WLOOP)
+(LOOP)
 @i
 D=M
 @last
@@ -76,15 +60,17 @@ D=D-M
 @BEGIN
 D;JGE
 
-@add
+@color
+D=M
+@addr
 A=M
-M=0
+M=D
 
-@add
+@addr
 M=M+1
 
 @i
 M=M+1
 
-@WLOOP
+@LOOP
 0;JMP

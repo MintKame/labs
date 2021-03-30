@@ -8,22 +8,19 @@
 
 // Put your code here.
 
-//R0>=0
-@R0
-D=M
-@NEG
-D;JLT
-
 (START)
 //R2=0
 @R2
 M=0
 
 //for(i=0;i<R0;i++)
+
+//i=0
 @i
 M=0
 
 (LOOP)
+//i<R0
 @R0
 D=M
 @i
@@ -31,26 +28,19 @@ D=D-M
 @END
 D;JLE
 
-@i
-M=M+1
-
 //R2+=R1      
 @R1
 D=M
 @R2
 M=M+D
 
+//i++
+@i
+M=M+1
+
 @LOOP
 0;JMP
 
 (END)
 @END
-0;JMP
-
-(NEG)
-@R0
-M=-M
-@R1
-M=-M
-@START
 0;JMP
