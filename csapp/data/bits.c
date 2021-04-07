@@ -1,10 +1,6 @@
 /* 
  * CS:APP Data Lab 
- * 
- * <Please put your name and userid here>
- * 
  * bits.c - Source file with your solutions to the Lab.
- *          This is the file you will hand in to your instructor.
  *
  * WARNING: Do not include the <stdio.h> header; it confuses the dlc
  * compiler. You can still use printf for debugging without including
@@ -28,7 +24,7 @@ INTEGER CODING RULES:
   Replace the "return" statement in each function with one
   or more lines of C code that implements the function. Your code 
   must conform to the following style:
- 
+
   int Funct(arg1, arg2, ...) {
       /* brief description of how your implementation works */
       int var1 = Expr1;
@@ -132,7 +128,6 @@ NOTES:
  *      the correct answers.
  */
 
-
 #endif
 //1
 /* 
@@ -142,8 +137,13 @@ NOTES:
  *   Max ops: 14
  *   Rating: 1
  */
-int bitXor(int x, int y) {
-  return 2;
+int bitXor(int x, int y)
+{
+  /* expliot & and ~ to compute ^ */
+  int a = x & ~y;
+  int b = ~x & y;
+  int ret = ~(~a & ~b);
+  return ret;
 }
 /* 
  * tmin - return minimum two's complement integer 
@@ -151,10 +151,10 @@ int bitXor(int x, int y) {
  *   Max ops: 4
  *   Rating: 1
  */
-int tmin(void) {
-
-  return 2;
-
+int tmin(void)
+{
+  /* exploit shift to get Tmin */
+  return 1 << 31;
 }
 //2
 /*
@@ -164,8 +164,14 @@ int tmin(void) {
  *   Max ops: 10
  *   Rating: 1
  */
-int isTmax(int x) {
-  return 2;
+int isTmax(int x)
+{
+  /* exploit overflow*/ //! -1
+  // Tmax [01..1]
+  int nx = ~x;       // [10..0]
+  int nx2 = nx + nx; // [0...0]
+  // printf("%d %d", nx, nx2);
+  return !nx2;
 }
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
@@ -175,8 +181,17 @@ int isTmax(int x) {
  *   Max ops: 12
  *   Rating: 2
  */
-int allOddBits(int x) {
-  return 2;
+int allOddBits(int x)
+{
+  int odd = 0xAA;
+  int oddBits = odd;
+  odd <<= 8;
+  oddBits |= odd;
+  odd <<= 8;
+  oddBits |= odd;
+  odd <<= 8;
+  oddBits |= odd; // 0xAAAAAAAA;
+  return !(~(x | ~oddBits));
 }
 /* 
  * negate - return -x 
@@ -185,8 +200,9 @@ int allOddBits(int x) {
  *   Max ops: 5
  *   Rating: 2
  */
-int negate(int x) {
-  return 2;
+int negate(int x)
+{
+  return ~x + 1;
 }
 //3
 /* 
@@ -198,8 +214,18 @@ int negate(int x) {
  *   Max ops: 15
  *   Rating: 3
  */
-int isAsciiDigit(int x) {
-  return 2;
+int isAsciiDigit(int x)
+{
+  int last4Bits = x & 0xF;
+  int otherBits = x & ~0xF;
+  int ret = 1;
+  // last 4 bits:   <= 0x9
+  int sub = 0x9 + ~last4Bits + 1; // 0x9 - last4 >= 0
+  int sign = (sub >> 31) & 1;     // should = 0
+  ret &= !sign;
+  // other bits:    0x30
+  ret &= !(~(~0x30 ^ otherBits));
+  return ret;
 }
 /* 
  * conditional - same as x ? y : z 
@@ -208,8 +234,13 @@ int isAsciiDigit(int x) {
  *   Max ops: 16
  *   Rating: 3
  */
-int conditional(int x, int y, int z) {
-  return 2;
+int conditional(int x, int y, int z) //!
+{
+  // int notX = !x;
+  // int isX = ;
+  // int ret = (~notX ^ y) | (~x ^ z);
+  // return ret;
+  return 1;
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -218,8 +249,24 @@ int conditional(int x, int y, int z) {
  *   Max ops: 24
  *   Rating: 3
  */
-int isLessOrEqual(int x, int y) {
-  return 2;
+int isLessOrEqual(int x, int y)
+{
+  int ret = 0;
+  int msb = 1 << 31;
+  int x_sign = x & msb;
+  int y_sign = y & msb;
+  int sub = y + (~x + 1); // y - x
+  int sub_sign = msb & sub;
+  //!
+  int is_same_sign = x_sign ^ ~y_sign; // 1...1 if same sign
+  int is_diff_sign = x_sign ^ ~y_sign; // 1...1 if diff sign
+  // 1: diff sign(x - y may overflow)
+  // ret |= ~is_same_sign &;
+
+  // 2: same sign
+  // (x <= y) == (y - x >= 0)
+  ret |= is_same_sign & sub_sign;
+  return ret;
 }
 //4
 /* 
@@ -230,8 +277,10 @@ int isLessOrEqual(int x, int y) {
  *   Max ops: 12
  *   Rating: 4 
  */
-int logicalNeg(int x) {
-  return 2;
+int logicalNeg(int x)
+{
+  // x ^ 0;
+  return 1;
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -245,10 +294,111 @@ int logicalNeg(int x) {
  *  Max ops: 90
  *  Rating: 4
  */
-int howManyBits(int x) {
-  return 0;
+int howManyBits(int x) //! simplify
+{
+  // from msb to lsb, start cnt when bit changes
+  // i.e. -5 = 1011; 1 = 01
+  // special case: 0, -1 (not change)
+  int cnt = 0;
+  int flag = 0;                  // whether cnt current bit
+  int xor = x ^ (x >> 1);        // each pair of bit, whether diff value (30 pairs: 30 -> 0)
+  int is_diff = (xor >> 30) & 1; // diff value -> current bit of xor == 1;
+  flag |= is_diff;               // start cnt when diff value
+  cnt += flag;
+  is_diff = (xor >> 29) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 28) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 27) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 26) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 25) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 24) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 23) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 22) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 21) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 20) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 19) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 18) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 17) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 16) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 15) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 14) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 13) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 12) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 11) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 10) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 9) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 8) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 7) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 6) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 5) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 4) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 3) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 2) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 1) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  is_diff = (xor >> 0) & 1;
+  flag |= is_diff;
+  cnt += flag;
+  cnt += 1;
+  return cnt;
 }
-//float
+//float: 1-8-23
 /* 
  * floatScale2 - Return bit-level equivalent of expression 2*f for
  *   floating point argument f.
@@ -260,9 +410,31 @@ int howManyBits(int x) {
  *   Max ops: 30
  *   Rating: 4
  */
-unsigned floatScale2(unsigned uf) {
-  return 2;
+unsigned floatScale2(unsigned uf)
+{
+  unsigned exp_mask = 0xff << 23;          // 8 bits of 1, 23 bits of 0
+  unsigned frac_mask = (0xfffff << 3) + 7; // 23 bits of 1
+  unsigned frac = frac_mask & uf;
+  unsigned exp = (exp_mask & uf) >> 23; // move to right
+
+  if (exp == 0xff) // special val
+  {
+  }
+  else if (exp != 0) // normal
+  {
+    // exp ++
+    uf += 1 << 23;
+  }
+  else // denormal
+  {
+    // whether overflow or not
+    // frac *= 2
+    // cause: when overflow and become normal, bits are continue inc
+    uf += frac;
+  }
+  return uf;
 }
+
 /* 
  * floatFloat2Int - Return bit-level equivalent of expression (int) f
  *   for floating point argument f.
@@ -275,8 +447,52 @@ unsigned floatScale2(unsigned uf) {
  *   Max ops: 30
  *   Rating: 4
  */
-int floatFloat2Int(unsigned uf) {
-  return 2;
+int floatFloat2Int(unsigned uf)
+{
+  unsigned frac_mask = (0xfffff << 3) + 7; // 23 bits of 14
+  unsigned frac = frac_mask & uf;
+  unsigned m = (1 << 23) + frac;        // 1.frac without point
+  unsigned m_point = 23;                // how many bits after pint of 1.frac
+  unsigned exp_mask = 0xff << 23;       // 8 bits of 1, 23 bits of 0
+  unsigned exp = (exp_mask & uf) >> 23; // move to right
+  unsigned sign = (uf >> 31) & 1;       // sign
+  unsigned bias = 127;
+  // unsign: [Tmin, Tmax]
+  // float:  [Tmin, -1] {0} [1, Tmax]
+  int ret = 0;
+  if (exp == 0xff) // special value
+  {
+    ret = 0x80000000u;
+  }
+  else if ((sign == 0 && exp >= bias + 31) || // not in [Tmin, Tmax]
+           (sign == 1 && exp > bias + 31))
+  {
+    ret = 0x80000000u;
+  }
+  else if (exp < 127) // smaller than 1
+  {
+    ret = 0;
+  }
+  else
+  {
+    ret = m;
+    // exp
+    for (; exp > 127; exp--)
+    {
+      if (m_point > 0)
+      {
+        m_point--;
+      }
+      else
+      {
+        ret <<= 1;
+      }
+    }
+    ret >>= m_point; // round
+    // sign
+    ret *= sign ? -1 : 1;
+  }
+  return ret;
 }
 /* 
  * floatPower2 - Return bit-level equivalent of the expression 2.0^x
@@ -291,6 +507,33 @@ int floatFloat2Int(unsigned uf) {
  *   Max ops: 30 
  *   Rating: 4
  */
-unsigned floatPower2(int x) {
-    return 2;
+// 测试文件有问题，会超时，
+// 需要把btest.c的第35行改成#define TIMEOUT_LIMIT 100
+unsigned floatPower2(int x)
+{
+  unsigned bias = 127;
+  // unsigned uf_1 = bias << 23;
+  // unsigned exp = bias;
+  // e [-127, 128]
+  unsigned inf = 0x7f800000;
+  unsigned ret = 0;
+  if (x >= 128) // too large (include nan and inf)
+  {
+    ret = inf;
+  }
+  else if (x < -126 - 23) // too small: smaller than float [0..0][0..01]
+  {
+    ret = 0;
+  }
+  else if (x >= -126) // normal:  [bias + x][0..0]
+  {
+    ret = (x + bias) << 23;
+  }
+  else // denarmal: [0..0][0..010..0]
+  {
+    // exp == 0, e = 1 - bias = -126
+    ret = 1 << 22;      // largest [0..0][10..0] == 2 ^ -127
+    ret >>= (-127 - x); // set frac
+  }
+  return ret;
 }
