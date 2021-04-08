@@ -166,13 +166,20 @@ int tmin(void)
  */
 int isTmax(int x)
 {
-  /* exploit overflow*/ //! -1
-  // Tmax [01..1]
-  int nx = ~x;       // [10..0]
-  int nx2 = nx + nx; // [0...0]
-  // printf("%d %d", nx, nx2);
-  return !nx2;
+  //! pass when use unsigned (but unsigned not allowed)
+  //! fail when use int
+  /* exploit overflow*/
+  // should make sure x != -1
+
+  //                 nx        nx*2
+  // Tmax [01..1]   [10..0]   [0...0]
+  //   -1 [1...1]   [0...0]   [0...0]
+  int nx = x + 1;
+  int nx2 = nx + nx;
+  int ret = (!nx2) & (!!nx);
+  return ret;
 }
+
 /* 
  * allOddBits - return 1 if all odd-numbered bits in word set to 1
  *   where bits are numbered from 0 (least significant) to 31 (most significant)
@@ -234,13 +241,16 @@ int isAsciiDigit(int x)
  *   Max ops: 16
  *   Rating: 3
  */
-int conditional(int x, int y, int z) //!
+int conditional(int x, int y, int z)
 {
-  // int notX = !x;
-  // int isX = ;
-  // int ret = (~notX ^ y) | (~x ^ z);
-  // return ret;
-  return 1;
+  //    x            nx        a          b        fb
+  //  [0...0]      [0..01]  [10..0]    [1..1]    [0..0]
+  //  [0..101]     [0...0]  [0...0]    [0..0]    [1..1]
+  int nx = !x;
+  int a = nx << 31;
+  int b = a >> 31; // arthm
+  int fb = ~b;
+  return (b & z) | (fb & y);
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -252,20 +262,23 @@ int conditional(int x, int y, int z) //!
 int isLessOrEqual(int x, int y)
 {
   int ret = 0;
-  int msb = 1 << 31;
-  int x_sign = x & msb;
-  int y_sign = y & msb;
-  int sub = y + (~x + 1); // y - x
-  int sub_sign = msb & sub;
-  //!
-  int is_same_sign = x_sign ^ ~y_sign; // 1...1 if same sign
-  int is_diff_sign = x_sign ^ ~y_sign; // 1...1 if diff sign
-  // 1: diff sign(x - y may overflow)
-  // ret |= ~is_same_sign &;
+  int msb_mask = 1 << 31;
+  int sub = y + (~x + 1); //y - x
+  // sign: 0 -> [0..0]; 1 -> [1..1]
+  int x_sign = (x & msb_mask) >> 31; // arthm shift
+  int y_sign = (y & msb_mask) >> 31;
+  int sub_sign = (msb_mask & sub) >> 31;
+
+  // same sign: 0 -> [0..0]; 1 -> [1..1]
+  int is_same_sign = x_sign ^ (~y_sign);
+
+  // 1: diff sign: sub may overflow
+  //  (y - x >= 0)  -> (y_sign == [0..0]) -> 1
+  ret |= (~is_same_sign) & (!y_sign);
 
   // 2: same sign
-  // (x <= y) == (y - x >= 0)
-  ret |= is_same_sign & sub_sign;
+  // (sub >= 0) -> (sub_sign == [0..0]) -> 1
+  ret |= is_same_sign & (!sub_sign);
   return ret;
 }
 //4
@@ -277,10 +290,12 @@ int isLessOrEqual(int x, int y)
  *   Max ops: 12
  *   Rating: 4 
  */
-int logicalNeg(int x)
+int logicalNeg(int x) // is Zero ?
 {
-  // x ^ 0;
-  return 1;
+  // answer:
+  // return ((x | (~x + 1)) >> 31) + 1;
+  // exploit -0 == 0          (! -[10..0] == [10..0], because overflow
+  // after |, sign bit is 0   (but [10..0] sign bit is 1
 }
 /* howManyBits - return the minimum number of bits required to represent x in
  *             two's complement
@@ -294,17 +309,17 @@ int logicalNeg(int x)
  *  Max ops: 90
  *  Rating: 4
  */
-int howManyBits(int x) //! simplify
+int howManyBits(int x) //!s1: too many steps
 {
   // from msb to lsb, start cnt when bit changes
   // i.e. -5 = 1011; 1 = 01
   // special case: 0, -1 (not change)
-  int cnt = 0;
+  int cnt;
   int flag = 0;                  // whether cnt current bit
   int xor = x ^ (x >> 1);        // each pair of bit, whether diff value (30 pairs: 30 -> 0)
   int is_diff = (xor >> 30) & 1; // diff value -> current bit of xor == 1;
-  flag |= is_diff;               // start cnt when diff value
-  cnt += flag;
+  flag = is_diff;                // start cnt when diff value
+  cnt = flag;
   is_diff = (xor >> 29) & 1;
   flag |= is_diff;
   cnt += flag;
@@ -398,6 +413,43 @@ int howManyBits(int x) //! simplify
   cnt += 1;
   return cnt;
 }
+
+//! s2: binary divide
+/*
+int howManyBits(int x)
+{
+  int s, c1, c2, c3, c4, c5, c6;
+  int cnt = 0;
+  s = (x >> 31) & 1; //	sign
+
+  // 2 case:                                                  | 1 at 31      | 1 at 8       |
+  x = ((s << 31) >> 31) ^ x; // get abs(x)
+  s = !!(x >> 16);           // whether ? has 1               | 31..16 -> 1  |  31..16 -> 0 |
+  c1 = s << 4;               // bits used to represent ?      | 15..0  -> 16 |  15..0  -> 0 |
+
+  x >>= c1;       // shift ?                                  | 15..0        |            0 |
+  s = !!(x >> 8); // wherher ? has 1                          | 31..24 -> 1  |  31..8  -> 1 |
+  c2 = s << 3;    // bits used to represent ?                 | 24..16 -> 8  |   7..0  -> 8 |
+
+  x >>= c2;
+  s = !!(x >> 4);
+  c3 = s << 2;
+
+  x >>= c3;
+  s = !!(x >> 2);
+  c4 = s << 1;
+
+  x >>= c4;
+  s = !!(x >> 1);
+  c5 = s;
+
+  x >>= c5;
+  c6 = !!x;                              // 判断最低位是否为1
+  cnt = c1 + c2 + c3 + c4 + c5 + c6 + 1; // 将每次获得的低位有效位相加，再加1位符号位
+  return cnt;
+}
+*/
+
 //float: 1-8-23
 /* 
  * floatScale2 - Return bit-level equivalent of expression 2*f for
@@ -537,3 +589,9 @@ unsigned floatPower2(int x)
   }
   return ret;
 }
+
+// int main()
+// {
+//   // printf("%d ",
+//   isTmax(0x7fffffff);
+// }
