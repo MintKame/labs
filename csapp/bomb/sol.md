@@ -1,7 +1,7 @@
 <!--
  * @Author: your name
  * @Date: 2021-04-12 23:10:43
- * @LastEditTime: 2021-04-14 23:43:36
+ * @LastEditTime: 2021-04-15 20:33:06
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: /bomb/sol.md
@@ -12,11 +12,12 @@ Border relations with Canada have never been better.
 1 311
 7 0
 9?>567
+4 3 2 1 6 5
 
 # 思路：
-+ 用strings和objdump分别获得了printable_string和symbol_table
-+ 用objdump disassemble 存于bomb.s
-+ 查看main 函数，分别调用6个phase，参数为输入的string，存于%rdi
++ 可以用strings和objdump分别获得printable_string和symbol_table
++ 用objdump disassemble 整个程序
++ 查看main 函数，main分别调用6个phase，参数为输入的string，存于%rdi
 
 1. 
 + strings_not_equal(a1, a2): 
@@ -92,83 +93,107 @@ Border relations with Canada have never been better.
   输入字符串各字符低四位： 9 f e 5 6 7 
   可输入字符串：9?>567
 
-6. 
+6. （推测是存储值和next指针的数组，通过设置next指针，对他们进行由大到小的排序
 + phase： 
-  调用函数读6个int，分别存在sp + 0x0, 0x4, 0x8, 0xc, 0x10, 0x14
-  sp的值存在 r13，r14, rbp
+  从输入中读6个int: a0..a5，
+  分别存在: rsp + 0x0, 0x4, 0x8, 0xc, 0x10, 0x14
+  rsp的值存在 r13，r14
+  r12d = 0
+  // 6个int为[1, 6]的排列（在1，6之间且各不相等）
+  do{ // 循环5次， 第i次 （0..4）
+    rbp = r13 
+    if (*(r13) - 1 < 0 || > 5) bomb // 第i个值在[1, 6] 
+    r12d++  // i + 1
+    if(r12d == 6){ 
+      break
+    } 
+    ebx = r12d // i + 1
+    do{ // j = [i+1 .. 5]
+      rax = ebx (符号扩展)
+      eax = *(rsp + 4 * rax) // 第 j 个值
+      if(rax == *(rbp)) bomb // 不等于第 i 个值
+      ebx++
+    }while(ebx <= 5) 
+    r13 += 4
+  }while(1)
+  
+  // 每个值 ai 改为 (7 - ai), 范围为 [1, 6]
+  rsi = 0x18 + rsp // 6个数之后的地址
+  rax = r14 // rsp
+  ecx = 7
+  do{
+    edx = ecx - *(rax)
+    *(rax) = edx
+    rax += 4  // 移到下一个值
+  }while(rax != rsi) 
 
-   0x0000000000401114 <+32>:    mov    %r13,%rbp
-   0x0000000000401117 <+35>:    mov    0x0(%r13),%eax
-   0x000000000040111b <+39>:    sub    $0x1,%eax
-   0x000000000040111e <+42>:    cmp    $0x5,%eax
-   0x0000000000401121 <+45>:    jbe    0x401128 <phase_6+52>
-   0x0000000000401123 <+47>:    callq  0x40143a <explode_bomb>
+  // 对第i个值ai，设置stack中 bi *(sp + 0x20 + 8i)为: (0x6032d0 + (ai - 1) * 0x10)  
+  rsi = 0
+  goto 163
+  do{
+    do{
+      rdx = *(rdx + 8)  
+      eax++
+    }while(ecx != eax) // ecx = 7
+    /* 地址： 数据 
+      0x6032d8: 0x6032e0
+      0x6032e8: 0x6032f0
+      0x6032f8: 0x603300
+      0x603308: 0x603310
+    */ 
+    goto 148
+    
+    do{
+      edx = 0x6032d0 
+// 148
+      *(rsp + 2 * rsi + 0x20) = rdx 
+      rsi += 4  // 需要执行6次
+      if(rsi == 0x18) goto 183
+// 163
+      ecx = *(rsp + rsi)            
+    }while(ecx <= 1)
+    
+    eax = 1
+    edx = 0x6032d0  
+  }while(1)
 
-   0x0000000000401128 <+52>:    add    $0x1,%r12d
-   0x000000000040112c <+56>:    cmp    $0x6,%r12d
-   0x0000000000401130 <+60>:    je     0x401153 <phase_6+95>
+  // 对i = 0..4，设置 *(bi + 8) 为 bi+1; 
+  // i = 5, *(bi + 8) 设置 为 0
+// 183 
+  rbx = *(rsp + 0x20)
+  rcx = rbx
+  rax = rsp + 0x28
+  rsi = rsp + 0x50
+  do{
+    rdx = *(rax)
+    *(rcx + 8) = rdx
+    rax += 8
+    if(rax == rsi) break
+    rcx = rdx
+  }while(1)   
+  *(rdx + 8) = 0
+  
+  // 循环5次
+  ebp = 5
+  do{
+    eax = *(*(rbx + 8))
+    if(*(rbx) < eax) bomb
+    rbx = *(rbx + 8)
+    ebp -= 1
+  }while(ebp != 0)  
+需要排列8结尾的行使得满足 低四位 *(ci) >= *(*(ci + 8)) // ci 为0结尾的行的地址
 
-   0x0000000000401132 <+62>:    mov    %r12d,%ebx
-   0x0000000000401135 <+65>:    movslq %ebx,%rax
-   0x0000000000401138 <+68>:    mov    (%rsp,%rax,4),%eax
-   0x000000000040113b <+71>:    cmp    %eax,0x0(%rbp)
-   0x000000000040113e <+74>:    jne    0x401145 <phase_6+81>
-   0x0000000000401140 <+76>:    callq  0x40143a <explode_bomb>
-   0x0000000000401145 <+81>:    add    $0x1,%ebx
-   0x0000000000401148 <+84>:    cmp    $0x5,%ebx
-   0x000000000040114b <+87>:    jle    0x401135 <phase_6+65>
-   0x000000000040114d <+89>:    add    $0x4,%r13
-   0x0000000000401151 <+93>:    jmp    0x401114 <phase_6+32>
-   
-
-
-
-   0x0000000000401153 <+95>:    lea    0x18(%rsp),%rsi
-   0x0000000000401158 <+100>:   mov    %r14,%rax
-   0x000000000040115b <+103>:   mov    $0x7,%ecx
-   0x0000000000401160 <+108>:   mov    %ecx,%edx
-   0x0000000000401162 <+110>:   sub    (%rax),%edx
-   0x0000000000401164 <+112>:   mov    %edx,(%rax)
-   0x0000000000401166 <+114>:   add    $0x4,%rax
-   0x000000000040116a <+118>:   cmp    %rsi,%rax
-   0x000000000040116d <+121>:   jne    0x401160 <phase_6+108>
-   0x000000000040116f <+123>:   mov    $0x0,%esi
-   0x0000000000401174 <+128>:   jmp    0x401197 <phase_6+163>
-   0x0000000000401176 <+130>:   mov    0x8(%rdx),%rdx
-   0x000000000040117a <+134>:   add    $0x1,%eax
-   0x000000000040117d <+137>:   cmp    %ecx,%eax
-   0x000000000040117f <+139>:   jne    0x401176 <phase_6+130>
-   0x0000000000401181 <+141>:   jmp    0x401188 <phase_6+148>
-   0x0000000000401183 <+143>:   mov    $0x6032d0,%edx
-   0x0000000000401188 <+148>:   mov    %rdx,0x20(%rsp,%rsi,2)
-   0x000000000040118d <+153>:   add    $0x4,%rsi
-   0x0000000000401191 <+157>:   cmp    $0x18,%rsi
-   0x0000000000401195 <+161>:   je     0x4011ab <phase_6+183>
-   0x0000000000401197 <+163>:   mov    (%rsp,%rsi,1),%ecx
-   0x000000000040119a <+166>:   cmp    $0x1,%ecx
-   0x000000000040119d <+169>:   jle    0x401183 <phase_6+143>
-   0x000000000040119f <+171>:   mov    $0x1,%eax
-   0x00000000004011a4 <+176>:   mov    $0x6032d0,%edx
-   0x00000000004011a9 <+181>:   jmp    0x401176 <phase_6+130>
-   0x00000000004011ab <+183>:   mov    0x20(%rsp)rr,%rbx
-   0x00000000004011b0 <+188>:   lea    0x28(%rsp),%rax
-   0x00000000004011b5 <+193>:   lea    0x50(%rsp),%rsi
-   0x00000000004011ba <+198>:   mov    %rbx,%rcx
-   0x00000000004011bd <+201>:   mov    (%rax),%rdx
-   0x00000000004011c0 <+204>:   mov    %rdx,0x8(%rcx)
-   0x00000000004011c4 <+208>:   add    $0x8,%rax
-   0x00000000004011c8 <+212>:   cmp    %rsi,%rax
-   0x00000000004011cb <+215>:   je     0x4011d2 <phase_6+222>
-   0x00000000004011cd <+217>:   mov    %rdx,%rcx
-   0x00000000004011d0 <+220>:   jmp    0x4011bd <phase_6+201>
-   0x00000000004011d2 <+222>:   movq   $0x0,0x8(%rdx)
-   0x00000000004011da <+230>:   mov    $0x5,%ebp
-   0x00000000004011df <+235>:   mov    0x8(%rbx),%rax
-   0x00000000004011e3 <+239>:   mov    (%rax),%eax
-   0x00000000004011e5 <+241>:   cmp    %eax,(%rbx)
-   0x00000000004011e7 <+243>:   jge    0x4011ee <phase_6+250>
-   0x00000000004011e9 <+245>:   callq  0x40143a <explode_bomb>
-   0x00000000004011ee <+250>:   mov    0x8(%rbx),%rbx
-   0x00000000004011f2 <+254>:   sub    $0x1,%ebp
-   0x00000000004011f5 <+257>:   jne    0x4011df <phase_6+235> 
-   0x0000000000401203 <+271>:   retq
+用a-f，标识指令，其中a-f的值由小到大， 
+按顺序改为时，满足要求
+0x6032d0 <node1>:       0x4c    0x01           <b> 
+0x6032d8 <node1+8>:     0xe0    0x32    0x60  
+0x6032e0 <node2>:       0xa8    0x00           <a>
+0x6032e8 <node2+8>:     0xf0    0x32    0x60   
+0x6032f0 <node3>:       0x9c    0x03           <f> <- head
+0x6032f8 <node3+8>:     0x00    0x33    0x60 
+0x603300 <node4>:       0xb3    0x02           <e>
+0x603308 <node4+8>:     0x10    0x33    0x60  
+0x603310 <node5>:       0xdd    0x01           <d>
+0x603318 <node5+8>:     0x20    0x33    0x60   
+0x603320 <node6>:       0xbb    0x01           <c>
+0x603318 <node5+8>:     0                    
