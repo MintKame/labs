@@ -1,12 +1,4 @@
-<!--
- * @Author: your name
- * @Date: 2021-04-12 23:10:43
- * @LastEditTime: 2021-04-15 20:33:06
- * @LastEditors: Please set LastEditors
- * @Description: In User Settings Edit
- * @FilePath: /bomb/sol.md
--->
-# 答案：
+# 答案
 Border relations with Canada have never been better. 
 1 2 4 8 16 32
 1 311
@@ -14,7 +6,7 @@ Border relations with Canada have never been better.
 9?>567
 4 3 2 1 6 5
 
-# 思路：
+# 思路
 + 可以用strings和objdump分别获得printable_string和symbol_table
 + 用objdump disassemble 整个程序
 + 查看main 函数，main分别调用6个phase，参数为输入的string，存于%rdi
@@ -46,7 +38,7 @@ Border relations with Canada have never been better.
   并设置 %eax 为不同的值，需要 = b
   例如输入 a = 1， 跳到 *(0x402470 + 8*1) = 0x400fb9
   %eax被设置为 0x137 = 311
-   
+  
 4. 
 + phase
   输入两个int a b，分别存储于 sp +8, +c
@@ -142,7 +134,7 @@ Border relations with Canada have never been better.
       0x603308: 0x603310
     */ 
     goto 148
-    
+  
     do{
       edx = 0x6032d0 
 // 148
@@ -152,7 +144,7 @@ Border relations with Canada have never been better.
 // 163
       ecx = *(rsp + rsi)            
     }while(ecx <= 1)
-    
+  
     eax = 1
     edx = 0x6032d0  
   }while(1)
