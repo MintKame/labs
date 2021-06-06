@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2021-06-03 12:56:25
- * @LastEditTime: 2021-06-06 19:15:15
+ * @LastEditTime: 2021-06-06 19:00:09
  * @LastEditors: Please set LastEditors
  * @Description: In User Settings Edit
  * @FilePath: \malloc\mm.c
@@ -47,7 +47,6 @@ team_t team = {
 #define CHUNK (1 << 12) // 4kb
 #define WSIZE 4
 #define DSIZE 8
-#define QSIZE 16
 #define ARR_SIZE 1023
 
 /* get / put a word(4) at addr */
@@ -223,7 +222,7 @@ int place(char *bp, int newsize)
 {
     int size = SIZE(HDR(bp));
     int remainder = size - newsize;
-    if (remainder >= QSIZE)
+    if (remainder >= 2 * DSIZE)
     {
         // use part of free block
         PUT(HDR(bp), PACK(newsize, 1));
@@ -311,7 +310,7 @@ int mm_init(void)
     }
 
     // allocate inital heap
-    list_hdr = mem_sbrk(QSIZE);
+    list_hdr = mem_sbrk(4 * WSIZE);
     if (list_hdr == (void *)-1) // have problem
     {
         return -1;
@@ -353,8 +352,8 @@ void *mm_malloc(size_t payload)
     void *bp = NULL;
     // adjust size
     int size = payload + DSIZE; // for hdr and ftr
-    if (size < QSIZE)           // at least 4 word (hdr, ftr, 2*ptr)
-        size = QSIZE;
+    if (size < (DSIZE << 1))    // at least 4 word (hdr, ftr, 2*ptr)
+        size = DSIZE << 1;
     if (size % 8 != 0) // align to 8 (low 3 bit is a/f)
         size += 8 - (size % 8);
 #ifdef DEBUG_A
@@ -445,8 +444,8 @@ void *mm_realloc(void *oldptr, size_t newpayload)
     }
     // adjust size
     int newsize = newpayload + DSIZE; // for hdr and ftr
-    if (newsize < (QSIZE))            // at least 4 word (hdr, ftr, 2*ptr)
-        newsize = QSIZE;
+    if (newsize < (DSIZE << 1))       // at least 4 word (hdr, ftr, 2*ptr)
+        newsize = DSIZE << 1;
     if (newsize % 8 != 0) // align to 8 (low 3 bit is a/f)
         newsize += 8 - (newsize % 8);
     // compare with oldsize
